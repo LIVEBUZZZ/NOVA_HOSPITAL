@@ -33,15 +33,40 @@ export function ChatbotCard() {
     setInput("");
     setLoading(true);
 
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: question })
-    });
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
 
-    const payload = (await response.json()) as { answer: string };
-    setMessages((current) => [...current, { role: "assistant", text: payload.answer }]);
-    setLoading(false);
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: question }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+      const payload = (await response.json()) as { answer?: string };
+      setMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          text:
+            payload.answer ||
+            "Please ask about the hospital, doctor, reservation, or booking. I will be happy to assist you."
+        }
+      ]);
+    } catch {
+      setMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          text:
+            "Please ask about the hospital, doctor, reservation, or booking. I will be happy to assist you."
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -63,7 +88,7 @@ export function ChatbotCard() {
               {message.text}
             </div>
           ))}
-          {loading ? <div className="text-sm text-slate-400">Connecting you to the right guidance...</div> : null}
+          {loading ? <div className="text-sm text-slate-400">Getting hospital guidance...</div> : null}
         </div>
         <form className="flex gap-3" onSubmit={onSubmit}>
           <Input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask which doctor to contact or what happens next." />

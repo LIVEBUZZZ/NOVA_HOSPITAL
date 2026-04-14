@@ -43,28 +43,32 @@ export function AuthForm({ mode, role = "patient", compact = false, onSuccess }:
   const activeForm = mode === "login" ? loginForm : signupForm;
 
   const onSubmit = activeForm.handleSubmit(async (values) => {
-    const body = mode === "login" ? { ...values, role } : values;
-    const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
+    try {
+      const body = mode === "login" ? { ...values, role } : values;
+      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
 
-    const payload = (await response.json()) as { message?: string; redirectTo?: string; success?: boolean };
+      const payload = (await response.json()) as { message?: string; redirectTo?: string; success?: boolean };
 
-    if (!response.ok || !payload.success) {
-      setToast(payload.message || "Authentication failed.");
-      return;
-    }
+      if (!response.ok || !payload.success) {
+        setToast(payload.message || "Authentication failed.");
+        return;
+      }
 
-    setToast(payload.message || (mode === "login" ? "Signed in." : "Account created."));
-    activeForm.reset();
+      setToast(payload.message || (mode === "login" ? "Signed in." : "Account created."));
+      activeForm.reset();
 
-    if (payload.redirectTo) {
-      onSuccess?.();
-      router.push(payload.redirectTo);
-      router.refresh();
+      if (payload.redirectTo) {
+        onSuccess?.();
+        router.push(payload.redirectTo);
+        router.refresh();
+      }
+    } catch {
+      setToast("Server error. Please refresh and try again.");
     }
   });
 

@@ -74,14 +74,81 @@ export type AppData = {
 };
 
 const storagePath = path.join(process.cwd(), "data", "app-data.json");
+const backupStoragePath = path.join(process.cwd(), "data", "app-data.backup.json");
+const tempStoragePath = path.join(process.cwd(), "data", "app-data.tmp.json");
+let writeQueue: Promise<void> = Promise.resolve();
+
+function getDefaultAppData(): AppData {
+  return {
+    users: [],
+    sessions: [],
+    appointments: [],
+    notifications: [],
+    visitRecords: [],
+    schedules: []
+  };
+}
+
+function isValidAppData(input: unknown): input is AppData {
+  if (!input || typeof input !== "object") {
+    return false;
+  }
+
+  const value = input as Partial<AppData>;
+  return (
+    Array.isArray(value.users) &&
+    Array.isArray(value.sessions) &&
+    Array.isArray(value.appointments) &&
+    Array.isArray(value.notifications) &&
+    Array.isArray(value.visitRecords) &&
+    Array.isArray(value.schedules)
+  );
+}
 
 async function readRawData() {
-  const file = await fs.readFile(storagePath, "utf8");
-  return JSON.parse(file) as AppData;
+  try {
+    const file = await fs.readFile(storagePath, "utf8");
+    const parsed = JSON.parse(file) as unknown;
+
+    if (isValidAppData(parsed)) {
+      return parsed;
+    }
+  } catch {
+    // Falls back to backup/default below.
+  }
+
+  try {
+    const backupFile = await fs.readFile(backupStoragePath, "utf8");
+    const parsedBackup = JSON.parse(backupFile) as unknown;
+
+    if (isValidAppData(parsedBackup)) {
+      await writeRawData(parsedBackup);
+      return parsedBackup;
+    }
+  } catch {
+    // Falls back to default seed below.
+  }
+
+  const defaultData = getDefaultAppData();
+  await writeRawData(defaultData);
+  return defaultData;
 }
 
 async function writeRawData(data: AppData) {
-  await fs.writeFile(storagePath, JSON.stringify(data, null, 2), "utf8");
+  const serialized = JSON.stringify(data, null, 2);
+
+  writeQueue = writeQueue.catch(() => undefined).then(async () => {
+    await fs.mkdir(path.dirname(storagePath), { recursive: true });
+    try {
+      await fs.copyFile(storagePath, backupStoragePath);
+    } catch {
+      // First write has no prior file to back up.
+    }
+    await fs.writeFile(tempStoragePath, serialized, "utf8");
+    await fs.rename(tempStoragePath, storagePath);
+  });
+
+  await writeQueue;
 }
 
 export async function getAppData() {
