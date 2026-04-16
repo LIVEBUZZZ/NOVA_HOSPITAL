@@ -6,7 +6,8 @@
       "fullName": "Aarohi Mehta",
       "email": "aarohi@example.com",
       "phone": "9876543210",
-      "password": "Patient@123",
+      "passwordSalt": "10263e59bb75ae65c11c80c607ea82f0",
+      "password": "9fe23f774be2c6c6fe638e4143ee6c46e7e2bb3c882c562d4543dc2605935b5c",
       "dueDate": "2026-07-07"
     },
     {
@@ -15,7 +16,8 @@
       "fullName": "Sana Khan",
       "email": "sana@example.com",
       "phone": "9811111111",
-      "password": "Patient@123",
+      "passwordSalt": "785d867d03c6deb57a514576bb9c0243",
+      "password": "12c31cd42426c6c6ed49faf2eb36a14d36a8db45178d61903c1667adb67e8e39",
       "dueDate": "2026-06-18"
     },
     {
@@ -24,7 +26,8 @@
       "fullName": "Nova Admin",
       "email": "admin@novamaternity.com",
       "phone": "9999999999",
-      "password": "Admin@123"
+      "passwordSalt": "35f1a1e96bbfb815da690a2f48321c66",
+      "password": "e5cd65591da48000ae2288903ba955cb86b1987171a7598b227401cc9d9946ae"
     },
     {
       "id": "patient-08fa9070-9f62-4737-8ddc-eba322cc2323",
@@ -32,7 +35,8 @@
       "fullName": "TRASH",
       "email": "TRASH@email.com",
       "phone": "9876543210",
-      "password": "trashmail123",
+      "passwordSalt": "c326e13adf061839776a1d4404086fc4",
+      "password": "c107b5f24cf7880bbd5bfc451c75e6ce17041980539a16232802d0eb42fc1615",
       "dueDate": "2026-04-13"
     },
     {
@@ -41,7 +45,8 @@
       "fullName": "Dr. Amara Shah",
       "email": "amara.shah@example.com",
       "phone": "9876543211",
-      "password": "Doctor@123",
+      "passwordSalt": "799c287e175300572248a81a86e5c7b6",
+      "password": "79dfdc7509496e9c9d3c42de74470fcfcaeb2adcacf0f0a749ed380604a1bd11",
       "specialty": "Maternal Fetal Medicine",
       "experience": "14 years",
       "availability": "Mon, Wed, Fri",
@@ -54,7 +59,8 @@
       "fullName": "Dr. Neha Arora",
       "email": "neha.arora@example.com",
       "phone": "9876543212",
-      "password": "Doctor@123",
+      "passwordSalt": "f30464d75282966bd45972a40ebb40ee",
+      "password": "a967ffdcb575ba974aaf572f57c7e4edd81653a2d4352f8391f2bab422c944c2",
       "specialty": "Obstetrics & Gynecology",
       "experience": "11 years",
       "availability": "Tue, Thu, Sat",
@@ -67,7 +73,8 @@
       "fullName": "Dr. Isha Menon",
       "email": "isha.menon@example.com",
       "phone": "9876543213",
-      "password": "Doctor@123",
+      "passwordSalt": "3a72a1900be2a3972789682fb3b1742a",
+      "password": "50ef4aba0fb8b830ef72f15e38bfebdb91f6b6f670da336d5fa6a9b5b4c2360e",
       "specialty": "Neonatal & Lactation Care",
       "experience": "9 years",
       "availability": "Daily",
@@ -87,12 +94,6 @@
       "userId": "patient-08fa9070-9f62-4737-8ddc-eba322cc2323",
       "role": "patient",
       "createdAt": "2026-04-14T15:10:38.773Z"
-    },
-    {
-      "token": "07a107d7-47dd-483c-ad3e-323201b5d7d5",
-      "userId": "admin-nova",
-      "role": "admin",
-      "createdAt": "2026-04-16T08:14:07.144Z"
     }
   ],
   "appointments": [

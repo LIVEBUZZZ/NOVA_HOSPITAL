@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 
 type StoredUser = {
   id: string;
@@ -9,6 +9,8 @@ type StoredUser = {
   email: string;
   phone: string;
   password: string;
+  // Optional for backward compatibility with older seeded data.
+  passwordSalt?: string;
   dueDate?: string;
   specialty?: string; // For doctors
   bio?: string; // For doctors
@@ -106,6 +108,24 @@ async function renameWithRetry(from: string, to: string) {
       await sleep(FILE_OP_RETRY_DELAY_MS * attempt);
     }
   }
+}
+
+function createPasswordHash(password: string, salt: string) {
+  // Simple salted SHA256 (demo). In production use a slow KDF like bcrypt/argon2.
+  return createHash("sha256").update(`${salt}:${password}`, "utf8").digest("hex");
+}
+
+export function verifyPassword(inputPassword: string, storedHash: string, storedSalt?: string) {
+  // Backward compatibility: if we have no salt, treat storedHash as plaintext.
+  if (!storedSalt) {
+    return inputPassword === storedHash;
+  }
+
+  const expectedHash = createPasswordHash(inputPassword, storedSalt);
+  if (expectedHash.length !== storedHash.length) return false;
+
+  // timingSafeEqual requires equal buffer lengths.
+  return timingSafeEqual(Buffer.from(expectedHash, "utf8"), Buffer.from(storedHash, "utf8"));
 }
 
 function getDefaultAppData(): AppData {
@@ -212,9 +232,11 @@ export async function createPatientUser(input: {
     email: normalizedEmail,
     phone: input.phone.trim(),
     dueDate: input.dueDate,
-    password: input.password
+    passwordSalt: randomBytes(16).toString("hex"),
+    password: "" // overwritten below
   };
 
+  user.password = createPasswordHash(input.password, user.passwordSalt!);
   data.users.push(user);
   await writeRawData(data);
   return { success: true as const, user };
@@ -243,13 +265,15 @@ export async function createDoctorUser(input: {
     fullName: input.fullName,
     email: input.email,
     phone: input.phone,
-    password: input.password,
+    passwordSalt: randomBytes(16).toString("hex"),
+    password: "" // overwritten below
     specialty: input.specialty,
     bio: input.bio,
     profileImageUrl: input.profileImageUrl,
     availability: input.availability
   };
 
+  user.password = createPasswordHash(input.password, user.passwordSalt!);
   data.users.push(user);
   await writeRawData(data);
   return { success: true as const, user };

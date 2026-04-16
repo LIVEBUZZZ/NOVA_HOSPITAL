@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { SESSION_COOKIE, SESSION_ROLE_COOKIE } from "@/lib/auth-constants";
-import { findUserByEmail, createSession } from "@/lib/server/store";
+import { findUserByEmail, createSession, verifyPassword } from "@/lib/server/store";
 import { loginSchema } from "@/lib/schemas/auth";
 
 export async function POST(request: Request) {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       }, { status: 401 });
     }
 
-    if (user.password !== password) {
+    if (!verifyPassword(password, user.password, user.passwordSalt)) {
       return NextResponse.json({ success: false, message: "Incorrect password." }, { status: 401 });
     }
 
