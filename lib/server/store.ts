@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "crypto";
+import seedData from "../../data/app-data.json";
 
 type StoredUser = {
   id: string;
@@ -74,6 +75,21 @@ export type AppData = {
   visitRecords: StoredVisitRecord[];
   schedules: StoredSchedule[];
 };
+
+const IS_VERCEL = Boolean(process.env.VERCEL);
+
+type GlobalMemoryStore = typeof globalThis & {
+  __novaAppData?: AppData;
+};
+
+function getMemoryAppData(): AppData {
+  const g = globalThis as GlobalMemoryStore;
+  if (!g.__novaAppData) {
+    // Seed once per warm Vercel function instance.
+    g.__novaAppData = JSON.parse(JSON.stringify(seedData)) as AppData;
+  }
+  return g.__novaAppData;
+}
 
 const storagePath = path.join(process.cwd(), "data", "app-data.json");
 const backupStoragePath = path.join(process.cwd(), "data", "app-data.backup.json");
@@ -156,6 +172,10 @@ function isValidAppData(input: unknown): input is AppData {
 }
 
 async function readRawData() {
+  if (IS_VERCEL) {
+    return getMemoryAppData();
+  }
+
   try {
     const file = await fs.readFile(storagePath, "utf8");
     const parsed = JSON.parse(file) as unknown;
@@ -185,6 +205,12 @@ async function readRawData() {
 }
 
 async function writeRawData(data: AppData) {
+  if (IS_VERCEL) {
+    const g = globalThis as GlobalMemoryStore;
+    g.__novaAppData = data;
+    return;
+  }
+
   const serialized = JSON.stringify(data, null, 2);
 
   writeQueue = writeQueue.catch(() => undefined).then(async () => {
@@ -266,7 +292,7 @@ export async function createDoctorUser(input: {
     email: input.email,
     phone: input.phone,
     passwordSalt: randomBytes(16).toString("hex"),
-    password: "" // overwritten below
+    password: "", // overwritten below
     specialty: input.specialty,
     bio: input.bio,
     profileImageUrl: input.profileImageUrl,
