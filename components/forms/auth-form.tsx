@@ -42,35 +42,60 @@ export function AuthForm({ mode, role = "patient", compact = false, onSuccess }:
 
   const activeForm = mode === "login" ? loginForm : signupForm;
 
-  const onSubmit = activeForm.handleSubmit(async (values) => {
-    try {
-      const body = mode === "login" ? { ...values, role } : values;
-      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
+  const onSubmit = activeForm.handleSubmit(
+    async (values) => {
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      try {
+        const controller = new AbortController();
+        timeoutId = setTimeout(() => controller.abort(), 10000);
+        const body = mode === "login" ? { ...values, role } : values;
+        const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          credentials: "same-origin",
+          signal: controller.signal,
+          body: JSON.stringify(body)
+        });
 
-      const payload = (await response.json()) as { message?: string; redirectTo?: string; success?: boolean };
+        let payload: { message?: string; redirectTo?: string; success?: boolean } = {};
+        try {
+          payload = (await response.json()) as { message?: string; redirectTo?: string; success?: boolean };
+        } catch {
+          setToast("Invalid server response. Please try again.");
+          return;
+        }
 
-      if (!response.ok || !payload.success) {
-        setToast(payload.message || "Authentication failed.");
-        return;
+        if (!response.ok || !payload.success) {
+          setToast(payload.message || "Authentication failed.");
+          return;
+        }
+
+        setToast(payload.message || (mode === "login" ? "Signed in." : "Account created."));
+        activeForm.reset();
+
+        if (payload.redirectTo) {
+          onSuccess?.();
+          router.replace(payload.redirectTo);
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setToast("Request timed out. Please check your connection and try again.");
+          return;
+        }
+        setToast("Server error. Please refresh and try again.");
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
       }
-
-      setToast(payload.message || (mode === "login" ? "Signed in." : "Account created."));
-      activeForm.reset();
-
-      if (payload.redirectTo) {
-        onSuccess?.();
-        router.push(payload.redirectTo);
-        router.refresh();
-      }
-    } catch {
-      setToast("Server error. Please refresh and try again.");
+    },
+    (errors) => {
+      const firstError = Object.values(errors)[0];
+      setToast(firstError?.message || "Please check the form fields and try again.");
     }
-  });
+  );
 
   return (
     <>

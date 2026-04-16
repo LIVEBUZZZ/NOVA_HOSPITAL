@@ -6,6 +6,7 @@ import { createPatientUser, createSession } from "@/lib/server/store";
 
 export async function POST(request: Request) {
   try {
+    const isProd = process.env.NODE_ENV === "production";
     const body = await request.json();
     const parsed = signupSchema.safeParse(body);
 
@@ -13,7 +14,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Invalid signup data." }, { status: 400 });
     }
 
-    const created = await createPatientUser(parsed.data);
+    const created = await createPatientUser({
+      ...parsed.data,
+      email: parsed.data.email.trim().toLowerCase(),
+      fullName: parsed.data.fullName.trim(),
+      phone: parsed.data.phone.trim()
+    });
 
     if (!created.success) {
       return NextResponse.json({ success: false, message: created.message }, { status: 400 });
@@ -29,13 +35,15 @@ export async function POST(request: Request) {
     response.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: false,
+      secure: isProd,
+      maxAge: 60 * 60 * 24 * 7,
       path: "/"
     });
     response.cookies.set(SESSION_ROLE_COOKIE, "patient", {
       httpOnly: true,
       sameSite: "lax",
-      secure: false,
+      secure: isProd,
+      maxAge: 60 * 60 * 24 * 7,
       path: "/"
     });
 

@@ -6,6 +6,7 @@ import { loginSchema } from "@/lib/schemas/auth";
 
 export async function POST(request: Request) {
   try {
+    const isProd = process.env.NODE_ENV === "production";
     const body = await request.json();
     const parsed = loginSchema.safeParse(body);
 
@@ -13,7 +14,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Invalid login data." }, { status: 400 });
     }
 
-    const user = await findUserByEmail(parsed.data.email);
+    const email = parsed.data.email.trim().toLowerCase();
+    const password = parsed.data.password.trim();
+    const user = await findUserByEmail(email);
 
     if (!user || user.role !== parsed.data.role) {
       return NextResponse.json({
@@ -22,7 +25,7 @@ export async function POST(request: Request) {
       }, { status: 401 });
     }
 
-    if (user.password !== parsed.data.password) {
+    if (user.password !== password) {
       return NextResponse.json({ success: false, message: "Incorrect password." }, { status: 401 });
     }
 
@@ -33,13 +36,15 @@ export async function POST(request: Request) {
     response.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: false,
+      secure: isProd,
+      maxAge: 60 * 60 * 24 * 7,
       path: "/"
     });
     response.cookies.set(SESSION_ROLE_COOKIE, user.role, {
       httpOnly: true,
       sameSite: "lax",
-      secure: false,
+      secure: isProd,
+      maxAge: 60 * 60 * 24 * 7,
       path: "/"
     });
 

@@ -77,6 +77,36 @@ const storagePath = path.join(process.cwd(), "data", "app-data.json");
 const backupStoragePath = path.join(process.cwd(), "data", "app-data.backup.json");
 const tempStoragePath = path.join(process.cwd(), "data", "app-data.tmp.json");
 let writeQueue: Promise<void> = Promise.resolve();
+const FILE_OP_RETRY_DELAY_MS = 80;
+const FILE_OP_MAX_RETRIES = 4;
+
+function isRetryableFsError(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("code" in error)) {
+    return false;
+  }
+  const code = String((error as { code?: string }).code);
+  return code === "EBUSY" || code === "EPERM";
+}
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function renameWithRetry(from: string, to: string) {
+  let attempt = 0;
+  while (attempt <= FILE_OP_MAX_RETRIES) {
+    try {
+      await fs.rename(from, to);
+      return;
+    } catch (error) {
+      if (!isRetryableFsError(error) || attempt === FILE_OP_MAX_RETRIES) {
+        throw error;
+      }
+      attempt += 1;
+      await sleep(FILE_OP_RETRY_DELAY_MS * attempt);
+    }
+  }
+}
 
 function getDefaultAppData(): AppData {
   return {
@@ -145,7 +175,7 @@ async function writeRawData(data: AppData) {
       // First write has no prior file to back up.
     }
     await fs.writeFile(tempStoragePath, serialized, "utf8");
-    await fs.rename(tempStoragePath, storagePath);
+    await renameWithRetry(tempStoragePath, storagePath);
   });
 
   await writeQueue;
@@ -164,10 +194,12 @@ export async function createPatientUser(input: {
   fullName: string;
   email: string;
   phone: string;
+  dueDate: string;
   password: string;
 }) {
   const data = await readRawData();
-  const existing = data.users.find((user) => user.email.toLowerCase() === input.email.toLowerCase());
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existing = data.users.find((user) => user.email.toLowerCase() === normalizedEmail);
 
   if (existing) {
     return { success: false as const, message: "An account with this email already exists." };
@@ -176,9 +208,10 @@ export async function createPatientUser(input: {
   const user: StoredUser = {
     id: `patient-${randomUUID()}`,
     role: "patient",
-    fullName: input.fullName,
-    email: input.email,
-    phone: input.phone,
+    fullName: input.fullName.trim(),
+    email: normalizedEmail,
+    phone: input.phone.trim(),
+    dueDate: input.dueDate,
     password: input.password
   };
 
