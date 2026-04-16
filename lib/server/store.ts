@@ -98,6 +98,11 @@ let writeQueue: Promise<void> = Promise.resolve();
 const FILE_OP_RETRY_DELAY_MS = 80;
 const FILE_OP_MAX_RETRIES = 4;
 
+// Local dev cache: avoids re-reading the JSON file for every request.
+// For Vercel we already use an in-memory seeded store.
+let localCache: AppData | null = null;
+let localCacheLoaded = false;
+
 function isRetryableFsError(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("code" in error)) {
     return false;
@@ -176,12 +181,18 @@ async function readRawData() {
     return getMemoryAppData();
   }
 
+  if (localCacheLoaded && localCache) {
+    return localCache;
+  }
+
   try {
     const file = await fs.readFile(storagePath, "utf8");
     const parsed = JSON.parse(file) as unknown;
 
     if (isValidAppData(parsed)) {
-      return parsed;
+      localCache = parsed;
+      localCacheLoaded = true;
+      return localCache;
     }
   } catch {
     // Falls back to backup/default below.
@@ -201,6 +212,8 @@ async function readRawData() {
 
   const defaultData = getDefaultAppData();
   await writeRawData(defaultData);
+  localCache = defaultData;
+  localCacheLoaded = true;
   return defaultData;
 }
 
@@ -211,15 +224,14 @@ async function writeRawData(data: AppData) {
     return;
   }
 
+  // Update cache first so subsequent reads are instant.
+  localCache = data;
+  localCacheLoaded = true;
+
   const serialized = JSON.stringify(data, null, 2);
 
   writeQueue = writeQueue.catch(() => undefined).then(async () => {
     await fs.mkdir(path.dirname(storagePath), { recursive: true });
-    try {
-      await fs.copyFile(storagePath, backupStoragePath);
-    } catch {
-      // First write has no prior file to back up.
-    }
     await fs.writeFile(tempStoragePath, serialized, "utf8");
     await renameWithRetry(tempStoragePath, storagePath);
   });
